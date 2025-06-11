@@ -1,0 +1,129 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - cd app
+  script:
+    - docker build -t juice-shop-local .
+    - docker save juice-shop-local | gzip > juice-shop.tar.gz
+  artifacts:
+    paths:
+      - app/juice-shop.tar.gz
+
+unit_tests:
+  stage: test
+  image: node:18
+  dependencies:
+    - build
+  before_script:
+    - cd app
+  script:
+    - npm run test:unit
+  artifacts:
+    when: always
+    paths:
+      - app/unit-test-results.xml
+    reports:
+      junit: app/unit-test-results.xml
+
+integration_tests:
+  stage: test
+  image: node:18
+  dependencies:
+    - build
+  before_script:
+    - cd app
+  script:
+    - npm run test:integration
+  artifacts:
+    when: always
+    paths:
+      - app/integration-test-results.xml
+    reports:
+      junit: app/integration-test-results.xml
+
+ui_tests:
+  stage: test
+  image: node:18
+  dependencies:
+    - build
+  before_script:
+    - cd app
+  script:
+    - npm run test:ui
+  artifacts:
+    when: always
+    paths:
+      - app/ui-test-results.xml
+    reports:
+      junit: app/ui-test-results.xml
+
+burp_scan:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  dependencies:
+    - build
+  script:
+    - |
+      set -e
+      trap 'echo "Running cleanup..."; sh scripts/scan-cleanup.sh $(pwd)' EXIT
+
+      echo "Installing curl..."
+      apk add --no-cache curl
+
+      echo "Loading Docker image..."
+      cd app
+      gzip -d juice-shop.tar.gz
+      docker load < juice-shop.tar
+      cd ..
+      
+      echo "Starting Juice Shop..."
+      docker run -d --network host --name juice-shop juice-shop-local
+
+      echo "Waiting for Juice Shop on localhost:3000..."
+      for i in {1..30}; do
+        if curl -sSf http://localhost:3000 > /dev/null; then
+          echo "Juice Shop is up!"
+          break
+        else
+          echo "Still waiting... ($i)"
+          sleep 2
+        fi
+      done
+
+      echo "Running Burp scan..."
+      docker run --rm --network host \
+        -u $(id -u) -v $(pwd):$(pwd):rw -w $(pwd) \
+        -e BURP_CONFIG_FILE_PATH=$(pwd)/.burp/burp-config.yml \
+        -e BURP_REPORT_FILE_PATH=$(pwd)/burp_junit_report.xml \
+        -e BURP_ENTERPRISE_API_KEY=$BURP_ENTERPRISE_API_KEY \
+        -e BURP_ENTERPRISE_SERVER_URL=$BURP_ENTERPRISE_SERVER_URL \
+        public.ecr.aws/portswigger/enterprise-scan-container:latest
+  artifacts:
+    when: always
+    paths:
+      - burp_junit_report.xml
+    reports:
+      junit: burp_junit_report.xml
+
+deploy:
+  stage: deploy
+  dependencies:
+    - unit_tests
+    - integration_tests
+    - ui_tests
+    - burp_scan
+  script:
+    - echo "Deploying..."

@@ -1,0 +1,12 @@
+site:
+  correlationId: My web app
+  scope:
+    startUrls:
+      - http://localhost:3000
+extensions:
+  filenames:
+    - image-resource-request-blocker-extension.jar
+reporting:
+  threshold:
+    minimumSeverity: LOW
+    minimumConfidence: FIRM

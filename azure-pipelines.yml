@@ -1,0 +1,167 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    displayName: Build and save Docker image
+    jobs:
+    - job: Build
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: DockerInstaller@0
+          inputs:
+            dockerVersion: '17.09.0-ce'
+        - checkout: self
+        - script: |
+            docker build -t juice-shop-local .
+            docker save juice-shop-local | gzip > juice-shop.tar.gz
+          displayName: 'Build and save Docker image'
+          workingDirectory: app
+        - publish: app/juice-shop.tar.gz
+          artifact: juice-shop-image
+          displayName: 'Publish Docker image artifact'
+
+  - stage: UnitTests
+    dependsOn: Build
+    jobs:
+    - job: UnitTests
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - checkout: self
+      - script: npm run test:unit
+        displayName: 'Run unit tests'
+        workingDirectory: app
+      - task: PublishTestResults@2
+        condition: always()
+        inputs: 
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'app/unit-test-results.xml'
+          searchFolder: '$(Build.SourcesDirectory)'
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+          testRunTitle: 'Unit tests'
+        displayName: 'Publish unit test results'
+
+  - stage: IntegrationTests
+    dependsOn: Build
+    jobs:
+    - job: IntegrationTests
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - checkout: self
+      - script: npm run test:integration
+        displayName: 'Run integration tests'
+        workingDirectory: app
+      - task: PublishTestResults@2
+        condition: always()
+        inputs: 
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'app/integration-test-results.xml'
+          searchFolder: '$(Build.SourcesDirectory)'
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+          testRunTitle: 'Integration tests'
+        displayName: 'Publish integration test results'
+
+  - stage: UITests
+    dependsOn: Build
+    jobs:
+    - job: UITests
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - checkout: self
+      - script: npm run test:ui
+        displayName: 'Run UI tests'
+        workingDirectory: app
+      - task: PublishTestResults@2
+        condition: always()
+        inputs: 
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'app/ui-test-results.xml'
+          searchFolder: '$(Build.SourcesDirectory)'
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+          testRunTitle: 'UI tests'
+        displayName: 'Publish UI test results'
+
+  - stage: BurpScan
+    dependsOn: Build
+    jobs:
+    - job: BurpScan
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - task: DockerInstaller@0
+        inputs:
+          dockerVersion: '17.09.0-ce'
+      - checkout: self
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          artifactName: juice-shop-image
+          targetPath: $(Build.SourcesDirectory)/artifacts
+        displayName: 'Download Docker image artifact'
+      - script: gunzip -c $(Build.SourcesDirectory)/artifacts/juice-shop.tar.gz | docker load
+        displayName: 'Load Docker image'
+      - script: |
+          docker run -d --network host --name juice-shop juice-shop-local
+        displayName: 'Start Juice Shop'
+      - script: |
+          echo "Waiting for Juice Shop on localhost:3000..."
+          for i in {1..30}; do
+            if curl -sSf http://localhost:3000 > /dev/null; then
+              echo "Juice Shop is up!"
+              exit 0
+            else
+              echo "Still waiting... ($i)"
+              sleep 2
+            fi
+          done
+          echo "Timeout waiting for Juice Shop. Dumping logs:"
+          docker logs juice-shop || echo "No logs found."
+          exit 1
+        displayName: 'Wait for Juice Shop to start'
+      - script: |
+          docker run --network host --rm \
+          -u $(id -u) -v $(Build.SourcesDirectory):$(Build.SourcesDirectory):rw -w $(Build.SourcesDirectory) \
+          -e BURP_CONFIG_FILE_PATH=.burp/burp-config.yml \
+          -e BURP_REPORT_FILE_PATH=$(Build.SourcesDirectory)/burp_junit_report.xml \
+          -e BURP_ENTERPRISE_SERVER_URL=$BURP_ENTERPRISE_SERVER_URL \
+          -e BURP_ENTERPRISE_API_KEY=$BURP_ENTERPRISE_API_KEY \
+          public.ecr.aws/portswigger/enterprise-scan-container:latest
+        env:
+          BURP_ENTERPRISE_SERVER_URL: $(BURP_ENTERPRISE_SERVER_URL)
+          BURP_ENTERPRISE_API_KEY: $(BURP_ENTERPRISE_API_KEY)
+        displayName: 'Run Burp scan'
+      - script: |
+          sh scripts/scan-cleanup.sh $(Build.SourcesDirectory)
+        condition: always()  
+        displayName: 'Clean up environment'
+      - task: PublishTestResults@2
+        condition: always()
+        inputs: 
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'burp_junit_report.xml'
+          searchFolder: '$(Build.SourcesDirectory)'
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+          testRunTitle: 'Burp scan results'
+        displayName: 'Publish Burp scan results'
+
+  - stage: Deploy
+    dependsOn:
+      - UnitTests
+      - IntegrationTests
+      - UITests
+      - BurpScan
+    jobs:
+    - job: Deploy
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - script: echo "Deploying..."
