@@ -172,7 +172,7 @@ jobs:
         if: always()
         run: |
           curl -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+            -H "Authorization: Token ${{ secrets.DEFECT_DOJO_API_KEY }}" \
             -F "scan_type=JUnit XML Report" \
             -F "file=@${{ github.workspace }}/burp_junit_report.xml;type=application/xml" \
             -F "product_name=${{ secrets.DEFECTDOJO_PRODUCT_NAME }}" \
