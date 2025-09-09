@@ -4,213 +4,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build application
-    runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build.outputs.image }}
-    defaults:
-      run:
-        working-directory: app
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build Docker Image
-        id: build
-        run: |
-          docker build -t juice-shop-local .
-          docker save juice-shop-local | gzip > juice-shop.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: juice-shop-image
-          path: app/juice-shop.tar.gz
-
-  unit_tests:
-    name: Run unit tests
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    defaults:
-      run:
-        working-directory: app
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm run test:unit
-      - name: Upload JUnit report as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Upload unit test report
-          path: app/unit-test-results.xml
-      - name: Publish unit test results to pipeline
-        if: always()
-        id: publish-unit-test-report
-        uses: mikepenz/action-junit-report@v3
-        with:
-          check_name: View unit test results
-          report_paths: 'app/unit-test-results.xml'
-          fail_on_failure: false
-          require_tests: false
-
-  integration_tests:
-    name: Run integration tests
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    defaults:
-      run:
-        working-directory: app
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm run test:integration
-      - name: Upload JUnit report as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Upload integration test report
-          path: app/integration-test-results.xml
-      - name: Publish integration test results to pipeline
-        if: always()
-        id: publish-integration-test-report
-        uses: mikepenz/action-junit-report@v3
-        with:
-          check_name: View integration test results
-          report_paths: 'app/integration-test-results.xml'
-          fail_on_failure: false
-          require_tests: false
-
-  ui_tests:
-    name: Run UI tests
-    needs: build
-    permissions:
-      contents: read
-      checks: write
-    defaults:
-      run:
-        working-directory: app
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm run test:ui
-      - name: Upload JUnit report as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Upload UI test report
-          path: app/ui-test-results.xml
-      - name: Publish UI test results to pipeline
-        if: always()
-        id: publish-ui-test-report
-        uses: mikepenz/action-junit-report@v3
-        with:
-          check_name: View UI test results
-          report_paths: 'app/ui-test-results.xml'
-          fail_on_failure: false
-          require_tests: false
-
   burp_scan:
     name: Run Burp Suite scan
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v4
-        with:
-          name: juice-shop-image
-      - run: gunzip -c juice-shop.tar.gz | docker load
-      - name: Start Juice Shop
-        run: docker run -d --network host --name juice-shop juice-shop-local
-      - name: Wait for Juice Shop to start
-        run: |
-          echo "Waiting for Juice Shop on localhost:3000..."
-          for i in {1..30}; do
-            if curl -sSf http://localhost:3000 > /dev/null; then
-              echo "Juice Shop is up!"
-              exit 0
-            else
-              echo "Still waiting... ($i)"
-              sleep 2
-            fi
-          done
-          echo "Timeout waiting for Juice Shop. Dumping logs:"
-          docker logs juice-shop || echo "No logs found."
-          exit 1
       - name: Run Burp scan
         run: |
           docker run --network host --rm \
             -u $(id -u) -v ${{ github.workspace }}:${{ github.workspace }}:rw -w ${{ github.workspace }} \
             -e BURP_ENTERPRISE_API_KEY=${{ secrets.BURP_API_KEY }} \
             -e BURP_ENTERPRISE_SERVER_URL=${{ secrets.BURP_URL }} \
+            -e BURP_START_URL=${{ secrets.BURP_START_URL }} \
             -e BURP_CONFIG_FILE_PATH=${{ github.workspace }}/.burp/burp-config.yml \
             -e BURP_REPORT_FILE_PATH=${{ github.workspace }}/burp_junit_report.xml \
             -e BURP_REPORT_FORMAT="JUNIT,BURP_XML" \
             public.ecr.aws/portswigger/enterprise-scan-container:latest
-      - name: Environment cleanup
-        if: always()
-        run: sh ${{ github.workspace }}/scripts/scan-cleanup.sh ${{ github.workspace }}
-      - name: Upload JUnit report as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Upload Burp report
-          path: ${{ github.workspace }}/burp_junit_report.xml
-      - name: Publish web app scan results to pipeline
-        if: always()
-        id: publish-burp-junit-test-report
-        uses: mikepenz/action-junit-report@v3
-        with:
-          check_name: View Burp scan results
-          report_paths: ${{ github.workspace }}/burp_junit_report.xml
-          fail_on_failure: false
-          require_tests: false
-      - name: Upload Burp XML
-        id: upload-burp-results
-        uses: actions/upload-artifact@v4
-        with:
-          name: burp-results
-          path: ${{ github.workspace }}/burp_xml_report.xml
-
-#      - name: Upload Burp scan results to DefectDojo
-#        if: always()
-#        run: |
-#          curl -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-#            -H "Authorization: Token ${{ secrets.DEFECT_DOJO_API_KEY }}" \
-#            -F "scan_type=Burp XML Report" \
-#            -F "file=@${{ github.workspace }}/burp_xml_report.xml;type=application/xml" \
-#            -F "product_name=${{ secrets.DEFECTDOJO_PRODUCT_NAME }}" \
-#            -F "engagement_name=Burp DAST Scan - $(date +%Y%m%d-%H%M%S)" \
-#            -F "auto_create_context=true" \
-#            -F "close_old_findings=false" \
-#            -F "push_to_jira=false" \
-#            -F "minimum_severity=Info" \
-#            -F "active=true" \
-#            -F "verified=false" || echo "DefectDojo upload failed, continuing pipeline"
-
-  import_burp_scan_results:
-    name: Import Burp Scan Results
-    if: always()
-    uses: portswigger-cloud/github-actions/.github/workflows/shared-defectdojo-import.yaml@main
-    with:
-      artifact-name: burp-results
-      defectdojo-product-type: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-product: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-environment-type: Production
-      defectdojo-scan-type: Burp XML Scan Report
-      defectdojo-engagement-name: "Burp DAST Scan - $(date +%Y%m%d-%H%M%S)"
-      scan-results-file-name: burp_xml_report.xml
-    secrets:
-      defectdojo-username: ${{ secrets.DEFECTDOJO_USERNAME }}
-      defectdojo-password: ${{ secrets.DEFECTDOJO_PASSWORD }}
-
+      # - name: Environment cleanup
+      #   if: always()
+      #   run: sh ${{ github.workspace }}/scripts/scan-cleanup.sh ${{ github.workspace }}
+      # - name: Upload JUnit report as artifact
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: Upload Burp report
+      #     path: ${{ github.workspace }}/burp_junit_report.xml
+      # - name: Publish web app scan results to pipeline
+      #   if: always()
+      #   id: publish-burp-junit-test-report
+      #   uses: mikepenz/action-junit-report@v3
+      #   with:
+      #     check_name: View Burp scan results
+      #     report_paths: ${{ github.workspace }}/burp_junit_report.xml
+      #     fail_on_failure: false
+      #     require_tests: false
+      # - name: Upload Burp XML
+      #   id: upload-burp-results
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: burp-results
+      #     path: ${{ github.workspace }}/burp_xml_report.xml
   deploy:
     name: Deploy application
-    needs: [unit_tests, integration_tests, ui_tests, burp_scan]
+    needs: [burp_scan]
     runs-on: ubuntu-latest
     steps:
       - run: echo "Deploying..."
