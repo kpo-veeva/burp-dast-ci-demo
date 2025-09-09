@@ -195,18 +195,12 @@ jobs:
   import_burp_scan_results:
     name: Import Burp Scan Results
     if: always()
-    uses: portswigger-cloud/github-actions/.github/workflows/shared-defectdojo-import.yaml@main
+    uses: mikepenz/action-junit-report@v3
     with:
-      artifact-name: burp-results
-      defectdojo-product-type: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-product: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-environment-type: Production
-      defectdojo-scan-type: Burp XML Scan Report
-      defectdojo-engagement-name: "Burp DAST Scan - $(date +%Y%m%d-%H%M%S)"
-      scan-results-file-name: burp_xml_report.xml
-    secrets:
-      defectdojo-username: ${{ secrets.DEFECTDOJO_USERNAME }}
-      defectdojo-password: ${{ secrets.DEFECTDOJO_PASSWORD }}
+      check_name: View Burp scan results
+      report_paths: ${{ github.workspace }}/burp_junit_report.xml
+      fail_on_failure: false
+      require_tests: false
 
   deploy:
     name: Deploy application
