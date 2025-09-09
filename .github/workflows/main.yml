@@ -192,21 +192,21 @@ jobs:
 #            -F "active=true" \
 #            -F "verified=false" || echo "DefectDojo upload failed, continuing pipeline"
 
-  import_burp_scan_results:
-    name: Import Burp Scan Results
-    if: always()
-    uses: portswigger-cloud/github-actions/.github/workflows/shared-defectdojo-import.yaml@main
-    with:
-      artifact-name: burp-results
-      defectdojo-product-type: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-product: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
-      defectdojo-environment-type: Production
-      defectdojo-scan-type: Burp XML Scan Report
-      defectdojo-engagement-name: "Burp DAST Scan - $(date +%Y%m%d-%H%M%S)"
-      scan-results-file-name: burp_xml_report.xml
-    secrets:
-      defectdojo-username: ${{ secrets.DEFECTDOJO_USERNAME }}
-      defectdojo-password: ${{ secrets.DEFECTDOJO_PASSWORD }}
+  # import_burp_scan_results:
+  #   name: Import Burp Scan Results
+  #   if: always()
+  #   uses: portswigger-cloud/github-actions/.github/workflows/shared-defectdojo-import.yaml@main
+  #   with:
+  #     artifact-name: burp-results
+  #     defectdojo-product-type: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
+  #     defectdojo-product: ${{ secrets.DEFECTDOJO_PRODUCT_NAME }}
+  #     defectdojo-environment-type: Production
+  #     defectdojo-scan-type: Burp XML Scan Report
+  #     defectdojo-engagement-name: "Burp DAST Scan - $(date +%Y%m%d-%H%M%S)"
+  #     scan-results-file-name: burp_xml_report.xml
+  #   secrets:
+  #     defectdojo-username: ${{ secrets.DEFECTDOJO_USERNAME }}
+  #     defectdojo-password: ${{ secrets.DEFECTDOJO_PASSWORD }}
 
   deploy:
     name: Deploy application
