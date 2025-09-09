@@ -1,8 +1,8 @@
 site:
-  correlationId: My web app
+  correlationId: Juice Shop using CI
   scope:
     startUrls:
-      - http://localhost:3000
+      - https://juice-shop.test1.dast-poc-apps.devservices.veevasecdev.com/
 extensions:
   filenames:
     - image-resource-request-blocker-extension.jar
