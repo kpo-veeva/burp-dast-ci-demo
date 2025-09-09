@@ -17,7 +17,8 @@ jobs:
             -u $(id -u) -v ${{ github.workspace }}:${{ github.workspace }}:rw -w ${{ github.workspace }} \
             -e BURP_ENTERPRISE_API_KEY=${{ secrets.BURP_API_KEY }} \
             -e BURP_ENTERPRISE_SERVER_URL=${{ secrets.BURP_URL }} \
-            -e BURP_START_URL=${{ secrets.BURP_START_URL }}
+            -e BURP_START_URL=${{ secrets.BURP_START_URL }} \
+            public.ecr.aws/portswigger/enterprise-scan-container:latest
       # - name: Environment cleanup
       #   if: always()
       #   run: sh ${{ github.workspace }}/scripts/scan-cleanup.sh ${{ github.workspace }}
