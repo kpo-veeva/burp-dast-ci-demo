@@ -192,15 +192,15 @@ jobs:
 #            -F "active=true" \
 #            -F "verified=false" || echo "DefectDojo upload failed, continuing pipeline"
 
-  # import_burp_scan_results:
-  #   name: Import Burp Scan Results
-  #   if: always()
-  #   uses: mikepenz/action-junit-report@v3
-  #   with:
-  #     check_name: View Burp scan results
-  #     report_paths: ${{ github.workspace }}/burp_junit_report.xml
-  #     fail_on_failure: false
-  #     require_tests: false
+  import_burp_scan_results:
+    name: Import Burp Scan Results
+    if: always()
+    uses: mikepenz/action-junit-report@v3
+    with:
+      check_name: View Burp scan results
+      report_paths: ${{ github.workspace }}/burp_junit_report.xml
+      fail_on_failure: false
+      require_tests: false
 
   deploy:
     name: Deploy application
