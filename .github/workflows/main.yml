@@ -178,7 +178,7 @@ jobs:
 
   deploy:
     name: Deploy application
-    needs: [unit_tests, integration_tests, ui_tests, burp_scan]
+    needs: [build, unit_tests, integration_tests, ui_tests, burp_scan]
     runs-on: ubuntu-latest
     steps:
       - run: echo "Deploying..."
