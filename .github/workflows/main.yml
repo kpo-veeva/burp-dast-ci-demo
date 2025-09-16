@@ -55,9 +55,9 @@ jobs:
             -e BURP_REPORT_FILE_PATH=${{ github.workspace }}/burp_junit_report.xml \
             -e BURP_REPORT_FORMAT="JUNIT,BURP_XML" \
             public.ecr.aws/portswigger/enterprise-scan-container:latest
-      - name: Environment cleanup
-        if: always()
-        run: sh ${{ github.workspace }}/scripts/scan-cleanup.sh ${{ github.workspace }}
+      # - name: Environment cleanup
+      #   if: always()
+      #   run: sh ${{ github.workspace }}/scripts/scan-cleanup.sh ${{ github.workspace }}
 
       # # Step 3: Display the message from the Netsparker action's output.
       # - name: Display Scan Request Message
