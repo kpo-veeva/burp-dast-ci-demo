@@ -1,0 +1,12 @@
+site:
+  correlationId: Juice Shop using CI
+  scope:
+    startUrls:
+      - https://juice-shop.test1.dast-poc-apps.devservices.veevasecdev.com/
+extensions:
+  filenames:
+    - image-resource-request-blocker-extension.jar
+reporting:
+  threshold:
+    minimumSeverity: LOW
+    minimumConfidence: FIRM

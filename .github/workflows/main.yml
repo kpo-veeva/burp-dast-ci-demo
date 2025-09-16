@@ -15,7 +15,7 @@ on:
 jobs:
   # The job you provided, with a name for better readability in the GitHub UI.
   netspaker_scan_job:
-    name: Run Netsparker Scan
+    name: Run Burp DAST Scan
     runs-on: ubuntu-latest
     steps:
       # # Step 1: Checkout the repository code. This is a best practice for most workflows.
