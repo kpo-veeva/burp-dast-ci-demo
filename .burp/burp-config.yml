@@ -125,7 +125,7 @@ site:
     #
     #     startUrls: ${BURP_START_URLS}
     startUrls:
-      - ${BURP_START_URL}
+      - ${https://juice-shop.test1.dast-poc-apps.devservices.veevasecdev.com/}
 
     # Detailed scope configuration settings
     # A list of URLs that you want to allow Burp Scanner to visit. The startUrls are included automatically. For example:
@@ -138,7 +138,7 @@ site:
     # $ BURP_SITE_IN_SCOPE_URL_PREFIXES="include1.ginandjuice.shop,include2.ginandjuice.shop"
     #
     # inScopeUrlPrefixes: ${BURP_SITE_IN_SCOPE_URL_PREFIXES}
-    inScopeUrlPrefixes: ${BURP_SITE_IN_SCOPE_URL_PREFIXES}
+    inScopeUrlPrefixes: ${juice-shop.test1.dast-poc-apps.devservices.veevasecdev.com}
 
     # A list of URLs that you don't allow Burp Scanner to visit. Use this list to avoid scanning sites you don't have permission to scan. Example:
     # outOfScopeUrlPrefixes:
@@ -150,7 +150,7 @@ site:
     # $ BURP_SITE_OUT_OF_SCOPE_URL_PREFIXES="ignore1.ginandjuice.shop,ignore2.ginandjuice.shop"
     #
     # outOfScopeUrlPrefixes: ${BURP_SITE_OUT_OF_SCOPE_URL_PREFIXES}
-    outOfScopeUrlPrefixes: ${BURP_SITE_OUT_OF_SCOPE_URL_PREFIXES}
+    outOfScopeUrlPrefixes: 
 
 scanConfigurations:
   # Select from Burp Scanner's built-in scan configurations.
