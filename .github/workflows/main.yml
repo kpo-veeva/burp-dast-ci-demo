@@ -43,7 +43,7 @@ jobs:
       #     wait-for-completion: false
 
       - name: Echo
-        run: echo "Burp"
+        run: echo "Burp 2"
       # what is github workspace?
       - name: Run Burp scan
         run: |
